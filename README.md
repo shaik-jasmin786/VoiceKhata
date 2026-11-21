@@ -23,7 +23,7 @@ VoiceKhata provides a simple digital solution to record credit and payment trans
 
 ### Vendor / Owner Features
 
-- Vendor registration and login using phone number and 4-digit PIN
+- Registration with a role dropdown (Shop Owner or Customer) and login using phone number and 4-digit PIN
 - Secure PIN hashing using BCrypt
 - Dashboard showing pending dues, total customers, monthly transactions, and recent transactions
 - Voice-based transaction entry in English, Hindi, and Telugu
@@ -40,14 +40,18 @@ VoiceKhata provides a simple digital solution to record credit and payment trans
 - Edit and delete transactions
 - WhatsApp payment reminders with prefilled messages
 - Multilingual landing page
+- Customers and transactions grouped by person: click a person to see their history
+- Separate Credit (took) and Payment (paid) columns in each person's history
+- Hindi and Telugu interface for the owner and customer pages
 
 ### Customer Features
 
-- Customer Portal
-- View outstanding dues
-- View customer-specific transaction information
-- Review credit records
-- Review payment records
+- Register as a Customer and log in with phone number and PIN
+- Role-based access: customers can open only the customer portal, and owners only the owner pages
+- Read-only dashboard showing the total amount owed across all shops
+- One card for each shop; click a shop to see the entries
+- Separate Credit (took) and Payment (paid) columns with totals
+- Link to the shop owner by the phone number saved in the owner's customer list
 
 ---
 
@@ -67,11 +71,12 @@ VoiceKhata provides a simple digital solution to record credit and payment trans
 
 ### Customer Workflow
 
-1. Open the Customer Portal.
-2. Access customer dues information.
-3. View outstanding balance.
-4. Check transaction history.
-5. Review credit and payment records.
+1. Open VoiceKhata and choose Register.
+2. Select "Customer" in the "I am a" dropdown.
+3. Register with the same phone number that the shop owner saved for you.
+4. Log in. You are taken to the customer dashboard.
+5. See the total you owe across all shops.
+6. Click a shop to see your entries and totals.
 
 ---
 
@@ -368,8 +373,8 @@ VoiceKhata uses REST APIs to connect the frontend with the Spring Boot backend.
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/api/health` | Check backend availability |
-| POST | `/api/auth/register` | Register a vendor |
-| POST | `/api/auth/login` | Vendor login |
+| POST | `/api/auth/register` | Register an account (role: OWNER or CUSTOMER) |
+| POST | `/api/auth/login` | Login; the reply includes the role |
 | POST | `/api/auth/logout` | End vendor session |
 | GET | `/api/customers` | Retrieve customers |
 | POST | `/api/customers` | Add a customer |
@@ -380,8 +385,14 @@ VoiceKhata uses REST APIs to connect the frontend with the Spring Boot backend.
 | PUT | `/api/transactions/{id}` | Update a transaction |
 | DELETE | `/api/transactions/{id}` | Delete a transaction |
 | GET | `/api/dashboard` | Retrieve dashboard information |
+| GET | `/api/my/dues` | Customer dashboard: dues and entries at every shop (customer accounts only) |
 
-Customer Portal APIs are also implemented to provide customer dues and transaction information.
+### Role-Based Access
+
+- The owner APIs (customers, transactions, dashboard) accept only OWNER accounts.
+- The customer API (`/api/my/dues`) accepts only CUSTOMER accounts.
+- A request with the wrong role gets a 403 (Forbidden) reply with a clear message.
+- A customer's dues are found by matching the customer's login phone number with the phone number saved in the shop owner's customer list.
 
 All protected endpoints require the appropriate authorization header:
 
@@ -422,27 +433,22 @@ cd VoiceKhata
 2. Open `database/schema.sql`.
 3. Execute the SQL script.
 4. Make sure the database is created successfully.
+The script creates the `voicekhata` database with the `vendors`, `customers` and `transactions` tables. The `vendors` table includes the `role` column (OWNER or CUSTOMER).
 
 ### 3. Configure Backend
 
-Open the backend project in Eclipse.
+The real configuration file is not uploaded to GitHub because it contains a password. Create it from the example file:
 
-Locate:
-
-```text
-backend/src/main/resources/application.properties
-```
-
-Configure your MySQL connection settings:
+1. Open `backend/src/main/resources/`.
+2. Make a copy of `application.properties.example` in the same folder.
+3. Rename the copy to `application.properties`.
+4. Open it and replace `YOUR_MYSQL_PASSWORD` with your local MySQL password.
 
 ```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/voicekhata
+spring.datasource.url=jdbc:mysql://localhost:3306/voicekhata?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata
 spring.datasource.username=root
 spring.datasource.password=YOUR_MYSQL_PASSWORD
 ```
-
-Replace `YOUR_MYSQL_PASSWORD` with your local MySQL password.
-
 ### 4. Run Backend
 
 1. Open the backend project in Eclipse.
