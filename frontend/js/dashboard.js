@@ -1,5 +1,5 @@
 /* ==========================================================
-   VoiceKhata - dashboard.js (backend version)
+   VoiceKhata - dashboard.js (owner dashboard, backend version)
    ========================================================== */
 
 function buildTransactionRow(t) {
@@ -62,5 +62,5 @@ async function loadDashboard() {
 document.addEventListener("DOMContentLoaded", function () {
   requireLogin("../login.html");
   if (!getCurrentVendor()) return;
-  loadDashboard();
+  loadDashboard();      // voice.js calls this again after every save
 });

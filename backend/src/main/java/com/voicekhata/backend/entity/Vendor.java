@@ -26,6 +26,10 @@ public class Vendor {
     @Column(name = "pin_hash", nullable = false)
     private String pinHash;
 
+    // OWNER (shop owner) or CUSTOMER
+    @Column(nullable = false)
+    private String role = "OWNER";
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -36,5 +40,7 @@ public class Vendor {
     public void setPhone(String phone) { this.phone = phone; }
     public String getPinHash() { return pinHash; }
     public void setPinHash(String pinHash) { this.pinHash = pinHash; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }

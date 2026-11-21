@@ -12,24 +12,44 @@ import com.voicekhata.backend.exception.ApiException;
 @Component
 public class TokenStore {
 
-    private final Map<String, Long> tokens = new ConcurrentHashMap<>();
+    private record Session(Long userId, String role) { }
 
-    public String create(Long vendorId) {
+    private final Map<String, Session> tokens = new ConcurrentHashMap<>();
+
+    public String create(Long userId, String role) {
         String token = UUID.randomUUID().toString();
-        tokens.put(token, vendorId);
+        tokens.put(token, new Session(userId, role));
         return token;
     }
 
-    // Reads "Authorization: Bearer <token>" and returns the vendor's id
-    public Long requireVendorId(String authHeader) {
+    // Reads "Authorization: Bearer <token>" and finds the session
+    private Session session(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Please login first.");
         }
-        Long vendorId = tokens.get(authHeader.substring(7));
-        if (vendorId == null) {
+        Session s = tokens.get(authHeader.substring(7));
+        if (s == null) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Session expired. Please login again.");
         }
-        return vendorId;
+        return s;
+    }
+
+    // For the shop owner APIs: only OWNER accounts are allowed
+    public Long requireVendorId(String authHeader) {
+        Session s = session(authHeader);
+        if (!"OWNER".equals(s.role())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This page is only for shop owners.");
+        }
+        return s.userId();
+    }
+
+    // For the customer APIs: only CUSTOMER accounts are allowed
+    public Long requireCustomerId(String authHeader) {
+        Session s = session(authHeader);
+        if (!"CUSTOMER".equals(s.role())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "This page is only for customers.");
+        }
+        return s.userId();
     }
 
     public void remove(String authHeader) {

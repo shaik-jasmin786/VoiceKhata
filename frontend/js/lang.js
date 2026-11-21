@@ -8,7 +8,8 @@
    It also translates texts that other scripts add later
    (for example the transaction rows).
 
-   To add a new translation, add one line inside "exact".
+   To add a new translation, add one line inside "exact"
+   (for sentences) or inside WORDS (for names and items).
    ========================================================== */
 
 (function () {
@@ -16,6 +17,28 @@
   const LANG_KEY = "vk_page_lang";              // en, hi or te (same key as landing page)
   const VOICE_KEY = "vk_voice_lang";
   const VOICE_CODES = { en: "en-IN", hi: "hi-IN", te: "te-IN" };
+
+
+  // Names and item names (add more here: "English": "translation")
+  const WORDS = {
+    hi: {
+      "Ramu":"रामू","Sita":"सीता","Raju":"राजू","Rohith":"रोहित","Aman":"अमन","Ramesh":"रमेश","Suresh":"सुरेश",
+      "Lakshmi":"लक्ष्मी","Kavita":"कविता","Priya":"प्रिया","Ravi":"रवि","Kiran":"किरण","Anil":"अनिल","Sunil":"सुनील",
+      "Geeta":"गीता","Mohan":"मोहन","Krishna":"कृष्णा","Ganesh":"गणेश",
+      "Tea":"चाय","Coffee":"कॉफ़ी","Samosa":"समोसा","Biscuit":"बिस्कुट","Bun":"बन","Milk":"दूध","Bread":"ब्रेड","Vada":"वड़ा",
+      "Idli":"इडली","Water":"पानी","Jalebi":"जलेबी","Pakora":"पकोड़ा","Dosa":"डोसा","Poori":"पूरी","Lassi":"लस्सी",
+      "Juice":"जूस","Banana":"केला","Egg":"अंडा"
+    },
+    te: {
+      "Ramu":"రాము","Sita":"సీత","Raju":"రాజు","Rohith":"రోహిత్","Aman":"అమన్","Ramesh":"రమేష్","Suresh":"సురేష్",
+      "Lakshmi":"లక్ష్మి","Kavita":"కవిత","Priya":"ప్రియ","Ravi":"రవి","Kiran":"కిరణ్","Anil":"అనిల్","Sunil":"సునీల్",
+      "Geeta":"గీత","Mohan":"మోహన్","Krishna":"కృష్ణ","Ganesh":"గణేష్",
+      "Tea":"టీ","Coffee":"కాఫీ","Samosa":"సమోసా","Biscuit":"బిస్కెట్","Bun":"బన్","Milk":"పాలు","Bread":"బ్రెడ్","Vada":"వడ",
+      "Idli":"ఇడ్లీ","Water":"నీళ్లు","Jalebi":"జిలేబీ","Pakora":"పకోడీ","Dosa":"దోశ","Poori":"పూరీ","Lassi":"లస్సీ",
+      "Juice":"జ్యూస్","Banana":"అరటిపండు","Egg":"గుడ్డు"
+    }
+  };
+  function nm(lang, word) { return WORDS[lang][word] || word; }
 
   const TEXTS = {
 
@@ -103,10 +126,27 @@
         "Save Changes": "बदलाव सेव करें",
         "Delete this entry?": "यह एंट्री हटाएँ?",
         "No, keep it": "नहीं, रहने दें",
-        "Yes, delete": "हाँ, हटाएँ"
+        "Yes, delete": "हाँ, हटाएँ",
+
+        // new pages
+        "tap to see details": "विवरण देखने के लिए टैप करें",
+        "tap to hide details": "विवरण छिपाने के लिए टैप करें",
+        "Total I Owe": "कुल मुझे देना है",
+        "Shops": "दुकानें",
+        "My Shops": "मेरी दुकानें",
+        "My Dues": "मेरा बकाया",
+        "Across all shops": "सभी दुकानों में",
+        "Where you have an account": "जहाँ आपका खाता है",
+        "Here is what you owe at each shop.": "हर दुकान पर आपका बकाया।",
+        "Edit phone": "फ़ोन बदलें",
+        "advance": "एडवांस",
+        "Total": "कुल"
       },
       rules: [
-        [/^Welcome, (.+)!$/, "स्वागत है, $1!"],
+        [/^Welcome, (.+)!$/, function (m, n) { return "स्वागत है, " + nm("hi", n) + "!"; }],
+        [/^(\d+) entr(?:y|ies)$/, "$1 एंट्री"],
+        [/^Call shop: (.+)$/, "दुकान को कॉल करें: $1"],
+        [/^(\d+) × (.+)$/, function (m, q, i) { return q + " × " + nm("hi", i); }],
         [/^(\d+) customers$/, "$1 ग्राहक"],
         [/^(₹[\d,.]+) to collect$/, "$1 वसूलना है"],
         [/^(₹[\d,.]+) credit$/, "$1 उधार"],
@@ -199,10 +239,27 @@
         "Save Changes": "మార్పులను సేవ్ చేయండి",
         "Delete this entry?": "ఈ ఎంట్రీని తొలగించాలా?",
         "No, keep it": "వద్దు, ఉంచండి",
-        "Yes, delete": "అవును, తొలగించండి"
+        "Yes, delete": "అవును, తొలగించండి",
+
+        // new pages
+        "tap to see details": "వివరాలు చూడటానికి నొక్కండి",
+        "tap to hide details": "వివరాలు దాచడానికి నొక్కండి",
+        "Total I Owe": "నేను చెల్లించాల్సిన మొత్తం",
+        "Shops": "షాపులు",
+        "My Shops": "నా షాపులు",
+        "My Dues": "నా బాకీ",
+        "Across all shops": "అన్ని షాపుల్లో",
+        "Where you have an account": "మీకు ఖాతా ఉన్న చోట",
+        "Here is what you owe at each shop.": "ప్రతి షాప్‌లో మీ బాకీ.",
+        "Edit phone": "ఫోన్ మార్చండి",
+        "advance": "అడ్వాన్స్",
+        "Total": "మొత్తం"
       },
       rules: [
-        [/^Welcome, (.+)!$/, "స్వాగతం, $1!"],
+        [/^Welcome, (.+)!$/, function (m, n) { return "స్వాగతం, " + nm("te", n) + "!"; }],
+        [/^(\d+) entr(?:y|ies)$/, "$1 ఎంట్రీలు"],
+        [/^Call shop: (.+)$/, "షాప్‌కు కాల్ చేయండి: $1"],
+        [/^(\d+) × (.+)$/, function (m, q, i) { return q + " × " + nm("te", i); }],
         [/^(\d+) customers$/, "$1 కస్టమర్లు"],
         [/^(₹[\d,.]+) to collect$/, "$1 వసూలు చేయాలి"],
         [/^(₹[\d,.]+) credit$/, "$1 అప్పు"],
@@ -212,6 +269,9 @@
     }
   };
 
+  TEXTS.hi.words = WORDS.hi;
+  TEXTS.te.words = WORDS.te;
+
   let current = "en";
   const originals = new WeakMap();      // text node -> its English text
   let observer = null;
@@ -220,6 +280,7 @@
 
   function translatePart(text, dict) {
     if (Object.prototype.hasOwnProperty.call(dict.exact, text)) return dict.exact[text];
+    if (dict.words && Object.prototype.hasOwnProperty.call(dict.words, text)) return dict.words[text];
     for (let i = 0; i < dict.rules.length; i++) {
       if (dict.rules[i][0].test(text)) return text.replace(dict.rules[i][0], dict.rules[i][1]);
     }

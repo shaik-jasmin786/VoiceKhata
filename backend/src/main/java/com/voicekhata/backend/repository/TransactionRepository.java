@@ -10,4 +10,5 @@ import com.voicekhata.backend.entity.Transaction;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findByVendorIdOrderByTransactionDateDesc(Long vendorId);
     Optional<Transaction> findByIdAndVendorId(Long id, Long vendorId);
+    List<Transaction> findByCustomerIdOrderByTransactionDateDesc(Long customerId);
 }

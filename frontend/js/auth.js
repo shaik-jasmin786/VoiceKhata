@@ -1,23 +1,34 @@
 /* ==========================================================
    VoiceKhata - auth.js
-   Talks to the Spring Boot backend for register and login.
-   Also contains apiRequest(), which every page will use later.
+   Register and login with two roles: OWNER and CUSTOMER.
+   Also contains apiRequest(), which every page uses.
    ========================================================== */
 
 const API_BASE = "http://localhost:8080/api";
 
 const VK_KEYS = {
-  CURRENT: "vk_current_vendor",   // name and phone of the logged-in vendor
+  CURRENT: "vk_current_vendor",   // name, phone and role of the logged-in user
   TOKEN: "vk_token"               // the token the backend gave us
 };
 
-// ---------- Where is the login page from this page? ----------
-function loginPagePath() {
+// ---------- Which folder is this page in? ----------
+function pageFolder() {
   const p = window.location.pathname;
-  const inSubfolder = p.indexOf("/dashboard/") !== -1 ||
-                      p.indexOf("/customers/") !== -1 ||
-                      p.indexOf("/transactions/") !== -1;
-  return inSubfolder ? "../login.html" : "login.html";
+  if (p.indexOf("/customer/") !== -1) return "customer";
+  if (p.indexOf("/dashboard/") !== -1 || p.indexOf("/customers/") !== -1 || p.indexOf("/transactions/") !== -1) return "owner";
+  return "root";
+}
+
+function loginPagePath() {
+  return pageFolder() === "root" ? "login.html" : "../login.html";
+}
+
+// Where should each role go after login?
+function homePath(role) {
+  const prefix = pageFolder() === "root" ? "" : "../";
+  return role === "CUSTOMER"
+    ? prefix + "customer/customer-dashboard.html"
+    : prefix + "dashboard/dashboard.html";
 }
 
 // ---------- Talking to the backend ----------
@@ -25,8 +36,6 @@ function getToken() {
   return localStorage.getItem(VK_KEYS.TOKEN);
 }
 
-// Sends a request and returns the JSON reply.
-// Throws an Error with a friendly message if something goes wrong.
 async function apiRequest(method, path, body) {
   const headers = { "Content-Type": "application/json" };
   const token = getToken();
@@ -64,7 +73,10 @@ async function apiRequest(method, path, body) {
 function getCurrentVendor() {
   if (!getToken()) return null;
   const data = localStorage.getItem(VK_KEYS.CURRENT);
-  return data ? JSON.parse(data) : null;
+  if (!data) return null;
+  const user = JSON.parse(data);
+  if (!user.role) user.role = "OWNER";       // older logins had no role
+  return user;
 }
 
 // ---------- Validation rules ----------
@@ -112,9 +124,9 @@ function allowOnlyDigits(inputId) {
 }
 
 // ---------- Main actions ----------
-async function registerVendor(name, phone, pin) {
+async function registerVendor(name, phone, pin, role) {
   try {
-    await apiRequest("POST", "/auth/register", { name: name, phone: phone, pin: pin });
+    await apiRequest("POST", "/auth/register", { name: name, phone: phone, pin: pin, role: role });
     return { success: true };
   } catch (e) {
     return { success: false, message: e.message };
@@ -125,8 +137,8 @@ async function loginVendor(phone, pin) {
   try {
     const data = await apiRequest("POST", "/auth/login", { phone: phone, pin: pin });
     localStorage.setItem(VK_KEYS.TOKEN, data.token);
-    localStorage.setItem(VK_KEYS.CURRENT, JSON.stringify({ name: data.name, phone: data.phone }));
-    return { success: true };
+    localStorage.setItem(VK_KEYS.CURRENT, JSON.stringify({ name: data.name, phone: data.phone, role: data.role }));
+    return { success: true, role: data.role };
   } catch (e) {
     return { success: false, message: e.message };
   }
@@ -139,10 +151,17 @@ function logout() {
   window.location.href = loginPagePath();
 }
 
+// Called at the top of every protected page.
+// Owners can open the owner pages, customers only the customer page.
 function requireLogin(pathToLogin) {
-  if (!getCurrentVendor()) {
-    window.location.href = pathToLogin || "../login.html";
+  const user = getCurrentVendor();
+  if (!user) {
+    window.location.href = pathToLogin || loginPagePath();
+    return;
   }
+  const folder = pageFolder();
+  if (folder === "customer" && user.role !== "CUSTOMER") window.location.href = homePath(user.role);
+  if (folder === "owner" && user.role === "CUSTOMER") window.location.href = homePath(user.role);
 }
 
 // ---------- Page setup ----------
@@ -151,8 +170,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const loginForm = document.getElementById("loginForm");
   const registerForm = document.getElementById("registerForm");
 
-  if ((loginForm || registerForm) && getCurrentVendor()) {
-    window.location.href = "dashboard/dashboard.html";
+  // Already logged in? Skip the login and register pages
+  const user = getCurrentVendor();
+  if ((loginForm || registerForm) && user) {
+    window.location.href = homePath(user.role);
     return;
   }
 
@@ -182,9 +203,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const result = await loginVendor(phone, pin);
       if (result.success) {
-        showMessage("Login successful! Opening dashboard...", "success");
+        showMessage("Login successful! Opening your dashboard...", "success");
         setTimeout(function () {
-          window.location.href = "dashboard/dashboard.html";
+          window.location.href = homePath(result.role);
         }, 800);
       } else {
         showMessage(result.message, "error");
@@ -198,6 +219,7 @@ document.addEventListener("DOMContentLoaded", function () {
       event.preventDefault();
       clearFieldErrors(registerForm);
 
+      const role = document.getElementById("role").value;     // OWNER or CUSTOMER
       const name = document.getElementById("vendorName").value.trim();
       const phone = document.getElementById("phone").value.trim();
       const pin = document.getElementById("pin").value.trim();
@@ -222,7 +244,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       if (hasError) return;
 
-      const result = await registerVendor(name, phone, pin);
+      const result = await registerVendor(name, phone, pin, role);
       if (result.success) {
         showMessage("Registration successful! Redirecting to login...", "success");
         setTimeout(function () {

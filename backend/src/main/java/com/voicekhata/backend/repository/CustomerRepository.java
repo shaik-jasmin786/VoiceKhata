@@ -11,4 +11,5 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     List<Customer> findByVendorIdOrderByNameAsc(Long vendorId);
     Optional<Customer> findByIdAndVendorId(Long id, Long vendorId);
     boolean existsByVendorIdAndNameIgnoreCase(Long vendorId, String name);
+    List<Customer> findByPhone(String phone);
 }

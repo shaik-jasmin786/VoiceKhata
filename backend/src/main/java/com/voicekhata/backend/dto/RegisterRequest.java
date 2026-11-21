@@ -13,5 +13,8 @@ public record RegisterRequest(
         String phone,
 
         @Pattern(regexp = "^\\d{4}$", message = "PIN must be exactly 4 digits.")
-        String pin) {
+        String pin,
+
+        @Pattern(regexp = "^(OWNER|CUSTOMER)$", message = "Role must be OWNER or CUSTOMER.")
+        String role) {
 }

@@ -27,7 +27,16 @@
       <form id="registerForm" novalidate>
 
         <div class="mb-3">
-          <label for="vendorName" class="form-label">Vendor Name</label>
+          <label for="role" class="form-label">I am a</label>
+          <select id="role" class="form-select form-select-lg">
+            <option value="OWNER">Shop Owner (Vendor)</option>
+            <option value="CUSTOMER">Customer</option>
+          </select>
+          <div class="form-text" id="roleHint">Owners record credit and payments. Customers can view what they owe.</div>
+        </div>
+
+        <div class="mb-3">
+          <label for="vendorName" class="form-label">Your Name</label>
           <input type="text" id="vendorName" class="form-control form-control-lg"
                  placeholder="e.g. Lakshmi" maxlength="40" autocomplete="name">
           <div class="invalid-feedback" id="vendorNameError"></div>

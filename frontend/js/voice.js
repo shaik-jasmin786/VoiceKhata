@@ -81,7 +81,7 @@ const ITEMS = {
   "Bun":     ["bun", "बन", "బన్", "బన్ను"],
   "Milk":    ["milk", "doodh", "दूध", "పాలు"],
   "Bread":   ["bread", "ब्रेड", "బ్రెడ్"],
-  "Vada":    ["vada", "vadai", "वड़ा", "वडा", "వడ", "వడలు"],
+  "Vada": ["vada", "wada", "vadai", "wadaa", "वड़ा", "वडा", "వడ", "వడలు"],
   "Idli":    ["idli", "इडली", "ఇడ్లీ", "ఇడ్లి"],
   "Water":   ["water", "pani", "पानी", "నీళ్లు", "నీరు"],
   "Jalebi":  ["jalebi", "जलेबी", "జిలేబీ", "జిలేబి"],
@@ -174,20 +174,68 @@ function buildTokens(rawText) {
 }
 
 // Finds the first known item in the sentence
+
 function findItem(objs) {
-  for (let i = 0; i < objs.length; i++) {
-    if (objs[i].num !== undefined) continue;
-    const word = objs[i].text;
-    for (const name in ITEMS) {
-      const hit = ITEMS[name].some(function (v) {
-        const isEnglish = /^[a-z]+$/.test(v);
-        return word === v || (isEnglish && (word === v + "s" || word === v + "es"));
-      });
-      if (hit) return { name: name, index: i };
+
+    // 1. Check known items first
+    for (let i = 0; i < objs.length; i++) {
+        if (objs[i].num !== undefined) continue;
+
+        const word = objs[i].text.toLowerCase();
+
+        for (const name in ITEMS) {
+            const hit = ITEMS[name].some(function (v) {
+                const value = v.toLowerCase();
+                const isEnglish = /^[a-z]+$/.test(value);
+
+                return word === value ||
+                    (isEnglish && (word === value + "s" || word === value + "es"));
+            });
+
+            if (hit) {
+                return { name: name, index: i };
+            }
+        }
     }
-  }
-  return null;
+
+    // 2. Find unknown items
+    const ignoredWords = [
+        "took", "take", "taken", "give", "gave", "get",
+        "bought", "buy", "sold", "sell", "paid", "pay",
+        "credit", "payment", "rupees", "rupee", "rs",
+        "amount", "for", "to", "of", "the", "and",
+        "please", "today", "yesterday", "add", "entry"
+    ];
+
+    const candidates = [];
+
+    for (let i = 0; i < objs.length; i++) {
+        if (objs[i].num !== undefined) continue;
+
+        const word = objs[i].text.toLowerCase();
+
+        if (ignoredWords.includes(word)) continue;
+        if (STOP_WORDS.includes(word)) continue;
+        if (matchesWord(word, CREDIT_WORDS)) continue;
+        if (matchesWord(word, PAYMENT_WORDS)) continue;
+        if (matchesWord(word, CURRENCY_WORDS)) continue;
+
+        candidates.push({ text: objs[i].text, index: i });
+    }
+
+    // 3. Customer is normally first, item is last
+    if (candidates.length >= 2) {
+        const item = candidates[candidates.length - 1];
+
+        return {
+            name: item.text.charAt(0).toUpperCase() + item.text.slice(1),
+            index: item.index
+        };
+    }
+
+    return null;
 }
+
 
 // MAIN PARSER: sentence in, details out
 function parseVoiceText(rawText, customers) {
@@ -412,7 +460,12 @@ function handleParse(text) {
 
 // Fills the card. If fromVoice is false, the card is empty (manual entry).
 function showConfirmCard(tx, fromVoice) {
-  byId("fCustomer").value = tx.customer || "";
+byId("fCustomer").value = tx.customer || "";
+byId("fCustomer").dataset.customerId = tx.customerId || "";
+
+byId("duplicateCustomerBox").classList.add("d-none");
+byId("duplicateCustomerSelect").innerHTML =
+    '<option value="">Choose customer</option>';
   byId("fItem").value = tx.item || "";
   byId("fQty").value = tx.quantity > 0 ? tx.quantity : "";
   byId("fAmount").value = tx.amount !== null ? tx.amount : "";
@@ -464,18 +517,51 @@ function updateTypeFields() {
 
 // Under the name box: existing customer or new customer
 function updateCustomerHint() {
-  const name = byId("fCustomer").value.trim();
-  const hint = byId("customerHint");
-  if (!name) { hint.textContent = ""; return; }
+    const name = byId("fCustomer").value.trim();
+    const hint = byId("customerHint");
+    const box = byId("duplicateCustomerBox");
+    const select = byId("duplicateCustomerSelect");
 
-  const existing = knownCustomers.find(function (c) {
-    return c.name.toLowerCase() === name.toLowerCase();
-  });
-  hint.textContent = existing
-    ? "Existing customer"
-    : "New customer • will be added to your khata";
+    byId("fCustomer").dataset.customerId = "";
+
+    box.classList.add("d-none");
+    select.innerHTML = '<option value="">Choose customer</option>';
+
+    if (!name) {
+        hint.textContent = "";
+        return;
+    }
+
+    const matches = knownCustomers.filter(function (c) {
+        return c.name.toLowerCase() === name.toLowerCase();
+    });
+
+    if (matches.length === 0) {
+        hint.textContent = "New customer • will be added to your khata";
+    }
+    else if (matches.length === 1) {
+        hint.textContent = "Existing customer • " + (matches[0].phone || "No phone number");
+        byId("fCustomer").dataset.customerId = matches[0].id;
+    }
+    else {
+        hint.textContent = "⚠ Multiple customers found. Select the correct customer.";
+        hint.style.color = "#dc3545";
+hint.style.fontWeight = "700";
+hint.style.backgroundColor = "#fff0f0";
+hint.style.padding = "8px 12px";
+hint.style.borderRadius = "8px";
+hint.style.border = "1px solid #f5b5b5";
+        box.classList.remove("d-none");
+
+        matches.forEach(function (c) {
+            const option = document.createElement("option");
+            option.value = c.id;
+            option.textContent = c.name + " • " +
+                (c.phone || "No phone") + " • ID: " + c.id;
+            select.appendChild(option);
+        });
+    }
 }
-
 function clearInvalid() {
   ["fCustomer", "fAmount", "fQty"].forEach(function (id) {
     byId(id).classList.remove("is-invalid");
@@ -484,26 +570,53 @@ function clearInvalid() {
 
 // Reads whatever is in the card (after the vendor's edits)
 function readConfirmCard() {
-  const type = getSelectedType();
-  return {
-    customer: byId("fCustomer").value.trim(),
-    type: type,
-    item: type === "PAYMENT" ? "" : byId("fItem").value.trim(),
-    quantity: type === "PAYMENT" ? 0 : Number(byId("fQty").value) || 0,
-    amount: Number(byId("fAmount").value)
-  };
+    const type = getSelectedType();
+    const customerName = byId("fCustomer").value.trim();
+    const customerId = byId("fCustomer").dataset.customerId;
+
+    const matchingCustomers = knownCustomers.filter(function (c) {
+        return c.name.toLowerCase() === customerName.toLowerCase();
+    });
+
+    let selectedCustomerId = null;
+
+    if (customerId) {
+        selectedCustomerId = Number(customerId);
+    }
+    else if (matchingCustomers.length === 1) {
+        selectedCustomerId = matchingCustomers[0].id;
+    }
+
+    return {
+        customer: customerName,
+        customerId: selectedCustomerId,
+        type: type,
+        item: type === "PAYMENT" ? "" : byId("fItem").value.trim(),
+        quantity: type === "PAYMENT" ? 0 : Number(byId("fQty").value) || 0,
+        amount: Number(byId("fAmount").value)
+    };
 }
 
 // Saves the transaction in MySQL through the backend
 async function saveVoiceTransaction() {
-  const tx = readConfirmCard();
+ const tx = readConfirmCard();
+ 
   clearInvalid();
   const problems = [];
 
-  if (!tx.customer) {
+if (!tx.customer) {
     problems.push("Customer name is missing.");
     byId("fCustomer").classList.add("is-invalid");
-  }
+} else {
+    const matchingCustomers = knownCustomers.filter(function (c) {
+        return c.name.toLowerCase() === tx.customer.toLowerCase();
+    });
+
+    if (matchingCustomers.length > 1 && !tx.customerId) {
+        problems.push("Multiple customers have this name. Please select the correct customer before saving.");
+        byId("fCustomer").classList.add("is-invalid");
+    }
+}
   if (!tx.amount || tx.amount <= 0) {
     problems.push("Amount is missing. Enter an amount above 0.");
     byId("fAmount").classList.add("is-invalid");
@@ -549,6 +662,10 @@ function resetVoiceModal() {
   clearInvalid();
   knownCustomers = [];
   byId("customerList").innerHTML = "";
+
+  byId("fCustomer").dataset.customerId = "";
+byId("duplicateCustomerBox").classList.add("d-none");
+byId("duplicateCustomerSelect").innerHTML = '<option value="">Choose customer</option>';
 
   fetchCustomers().then(function (list) {
     knownCustomers = list;
@@ -610,6 +727,30 @@ document.addEventListener("DOMContentLoaded", function () {
     byId("fCustomer").classList.remove("is-invalid");
     updateCustomerHint();
   });
+  byId("fCustomer").addEventListener("input", function () {
+    byId("fCustomer").classList.remove("is-invalid");
+    updateCustomerHint();
+});
+
+// PASTE NEW CODE HERE 👇
+byId("duplicateCustomerSelect").addEventListener("change", function () {
+    const selectedId = this.value;
+
+    byId("fCustomer").dataset.customerId = selectedId || "";
+
+    const customer = knownCustomers.find(function (c) {
+        return String(c.id) === String(selectedId);
+    });
+
+    if (customer) {
+        byId("customerHint").textContent =
+            "Selected customer • " +
+            (customer.phone || "No phone number") +
+            " • ID " + customer.id;
+
+        byId("fCustomer").classList.remove("is-invalid");
+    }
+});
   byId("fAmount").addEventListener("input", function () { byId("fAmount").classList.remove("is-invalid"); });
   byId("fQty").addEventListener("input", function () { byId("fQty").classList.remove("is-invalid"); });
 

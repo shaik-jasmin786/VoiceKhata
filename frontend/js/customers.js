@@ -1,18 +1,20 @@
 /* ==========================================================
-   VoiceKhata - customers.js (backend version)
-   Customers and balances come from MySQL through the backend.
+   VoiceKhata - customers.js (owner's Customers page)
+   Each customer is one row: name, amount and a WhatsApp button.
+   Click a customer to see the phone number and edit it.
    ========================================================== */
 
 let editingId = null;        // null = adding a new customer
 let customerModal = null;
-let allCustomers = [];       // customers from the backend
+let allCustomers = [];
 let balances = {};           // customer name (lowercase) -> balance
+let shown = [];              // customers currently on the screen
+let openIds = new Set();     // customers whose details are open
 
 function byId(id) { return document.getElementById(id); }
 
 // ---------- Loading data ----------
 
-// Balance = credit - payments, worked out from the transactions
 function calculateBalances(transactions) {
   const map = {};
   transactions.forEach(function (t) {
@@ -39,56 +41,55 @@ async function loadCustomers() {
   }
 }
 
-// ---------- Building the list ----------
+// ---------- Drawing the list ----------
 
-function buildCustomerRow(c) {
+function buildCustomerRow(c, index) {
   const balance = balanceOf(c);
-  const owes = balance > 0;
+  const isOpen = openIds.has(c.id);
 
-  let statusBadge;
-  let amountText;
-  if (balance > 0) {
-    statusBadge = '<span class="badge-pending">Pending</span>';
-    amountText = formatRupees(balance);
-  } else if (balance === 0) {
-    statusBadge = '<span class="badge-paid">All paid</span>';
-    amountText = formatRupees(0);
-  } else {
-    statusBadge = '<span class="badge-paid">Advance paid</span>';
-    amountText = formatRupees(Math.abs(balance));
-  }
+  // Amount (no Pending badge: the amount itself is the pending amount)
+  let amountClass = "payment";
+  let amountText = formatRupees(Math.abs(balance));
+  let note = "";
+  if (balance > 0) amountClass = "credit";
+  else if (balance < 0) note = '<div class="small text-secondary">advance</div>';
+
+  // WhatsApp button only when the customer owes money
+  const remindBtn = balance > 0
+    ? '<button type="button" class="btn btn-vk-teal btn-sm" data-action="remind" data-id="' + c.id + '" aria-label="Send WhatsApp reminder">' +
+        '<i class="bi bi-whatsapp"></i> <span class="d-none d-sm-inline ms-1">Send Reminder</span></button>'
+    : "";
 
   const phoneText = c.phone
     ? '<i class="bi bi-telephone me-1"></i>' + escapeHtml(c.phone)
     : '<span class="text-danger">No phone number</span>';
 
-  const remindBtn = owes
-    ? '<button type="button" class="btn btn-vk-teal btn-sm" data-action="remind" data-id="' + c.id + '">' +
-        '<i class="bi bi-whatsapp me-1"></i> Send Reminder</button>'
-    : '<button type="button" class="btn btn-outline-secondary btn-sm" disabled>Nothing pending</button>';
-
   return (
-    '<div class="cust-row">' +
-      '<div class="tx-avatar">' + escapeHtml(c.name.charAt(0).toUpperCase()) + '</div>' +
-      '<div class="tx-info">' +
-        '<div class="tx-name">' + escapeHtml(c.name) + '</div>' +
-        '<div class="tx-detail">' + phoneText +
-          ' <a href="#" class="auth-link ms-2" data-action="edit" data-id="' + c.id + '">' +
-          (c.phone ? "Edit" : "Add phone") + '</a></div>' +
-      '</div>' +
-      '<div class="cust-right">' +
-        '<div class="tx-amount ' + (owes ? "credit" : "payment") + '">' + amountText + '</div>' +
-        statusBadge +
-        '<div class="mt-2">' + remindBtn + '</div>' +
-      '</div>' +
-    '</div>'
+    '<div class="border-bottom py-3">' +
+      '<div class="d-flex align-items-center gap-3" style="cursor:pointer" data-cust="' + index + '">' +
+        '<div class="tx-avatar">' + escapeHtml(c.name.charAt(0).toUpperCase()) + "</div>" +
+        '<div class="tx-info">' +
+          '<div class="tx-name">' + escapeHtml(c.name) + "</div>" +
+          '<div class="tx-detail">tap to ' + (isOpen ? "hide" : "see") + " details</div>" +
+        "</div>" +
+        '<div class="text-end">' +
+          '<div class="tx-amount ' + amountClass + '">' + amountText + "</div>" + note +
+        "</div>" +
+        remindBtn +
+      "</div>" +
+      '<div class="mt-2 ms-5 ps-4 ' + (isOpen ? "" : "d-none") + '">' +
+        '<span class="me-3">' + phoneText + "</span>" +
+        '<a href="#" class="auth-link" data-action="edit" data-id="' + c.id + '">' +
+          '<i class="bi bi-pencil me-1"></i>' + (c.phone ? "Edit phone" : "Add phone") + "</a>" +
+      "</div>" +
+    "</div>"
   );
 }
 
 function renderCustomers() {
   const search = byId("searchBox").value.trim().toLowerCase();
 
-  const shown = allCustomers
+  shown = allCustomers
     .filter(function (c) { return c.name.toLowerCase().indexOf(search) !== -1; })
     .sort(function (a, b) { return balanceOf(b) - balanceOf(a); });
 
@@ -190,15 +191,23 @@ document.addEventListener("DOMContentLoaded", function () {
     this.value = this.value.replace(/\D/g, "");
   });
 
+  // One listener: WhatsApp and Edit buttons first, then open/close a customer
   byId("customerList").addEventListener("click", function (event) {
-    const el = event.target.closest("[data-action]");
-    if (!el) return;
-    event.preventDefault();
+    const actionBtn = event.target.closest("[data-action]");
+    if (actionBtn) {
+      event.preventDefault();
+      const customer = allCustomers.find(function (c) { return String(c.id) === actionBtn.getAttribute("data-id"); });
+      if (!customer) return;
+      if (actionBtn.getAttribute("data-action") === "remind") sendReminder(customer);
+      else openCustomerModal(customer);
+      return;
+    }
 
-    const customer = allCustomers.find(function (c) { return String(c.id) === el.getAttribute("data-id"); });
-    if (!customer) return;
-
-    if (el.getAttribute("data-action") === "remind") sendReminder(customer);
-    else openCustomerModal(customer);
+    const head = event.target.closest("[data-cust]");
+    if (!head) return;
+    const c = shown[Number(head.getAttribute("data-cust"))];
+    if (!c) return;
+    if (openIds.has(c.id)) openIds.delete(c.id); else openIds.add(c.id);
+    renderCustomers();
   });
 });

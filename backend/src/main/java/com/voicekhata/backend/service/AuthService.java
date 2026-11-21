@@ -31,7 +31,8 @@ public class AuthService {
         Vendor v = new Vendor();
         v.setVendorName(req.name().trim());
         v.setPhone(req.phone());
-        v.setPinHash(passwordEncoder.encode(req.pin()));   // PIN is scrambled, never stored plain
+        v.setPinHash(passwordEncoder.encode(req.pin()));
+        v.setRole(req.role() == null ? "OWNER" : req.role());
         vendorRepository.save(v);
     }
 
@@ -40,6 +41,6 @@ public class AuthService {
                 .filter(x -> passwordEncoder.matches(req.pin(), x.getPinHash()))
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Wrong phone number or PIN."));
 
-        return new AuthResponse(tokenStore.create(v.getId()), v.getVendorName(), v.getPhone());
+        return new AuthResponse(tokenStore.create(v.getId(), v.getRole()), v.getVendorName(), v.getPhone(), v.getRole());
     }
 }
