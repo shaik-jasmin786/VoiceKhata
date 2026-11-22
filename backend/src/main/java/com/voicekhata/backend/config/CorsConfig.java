@@ -1,3 +1,4 @@
+
 package com.voicekhata.backend.config;
 
 import org.springframework.context.annotation.Bean;
@@ -10,15 +11,18 @@ public class CorsConfig {
 
     @Bean
     public WebMvcConfigurer corsConfigurer() {
+
         return new WebMvcConfigurer() {
+
             @Override
             public void addCorsMappings(CorsRegistry registry) {
+
                 registry.addMapping("/api/**")
                         .allowedOriginPatterns(
-    "http://127.0.0.1:*",
-    "http://localhost:*",
-    "https://voicekhata.jasminshaik765.workers.dev"
-)
+                                "http://127.0.0.1:*",
+                                "http://localhost:*",
+                                "https://voicekhata.jasminshaik765.workers.dev"
+                        )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
