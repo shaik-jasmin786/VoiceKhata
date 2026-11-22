@@ -4,7 +4,7 @@
    Also contains apiRequest(), which every page uses.
    ========================================================== */
 
-const API_BASE = "https://voicekhata-sp06.onrender.com/api";
+const API_BASE = "http://localhost:8080/api";
 
 const VK_KEYS = {
   CURRENT: "vk_current_vendor",   // name, phone and role of the logged-in user
