@@ -14,7 +14,11 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
-                        .allowedOriginPatterns("http://127.0.0.1:*", "http://localhost:*")
+                        .allowedOriginPatterns(
+    "http://127.0.0.1:*",
+    "http://localhost:*",
+    "https://voicekhata.jasminshaik765.workers.dev"
+)
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
